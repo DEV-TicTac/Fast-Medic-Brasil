@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assinatura Digital</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="header">
+    <h1>Assinatura Digital</h1>
+  </div>
+
+  <div class="form-container">
+    <form id="formAssinatura">
+
+      <div class="form-group">
+        <label for="codigo">Código de verificação <span class="required">*</span></label>
+        <input
+          type="text"
+          id="codigo"
+          name="codigo"
+          class="form-control"
+          placeholder="Informe o código impresso"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="data">Data de assinatura ou geração do documento <span class="required">*</span></label>
+        <input
+          type="date"
+          id="data"
+          name="data"
+          class="form-control"
+          required
+        >
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="btnPesquisar">Pesquisar</button>
+      <button type="button" class="btn btn-secondary" onclick="limparFormulario()">Limpar</button>
+
+    </form>
+
+    <p id="mensagem" class="mensagem" style="display:none;"></p>
+  </div>
+
+  <!-- Modal do documento -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>Documento Original</h2>
+        <button class="modal-close" onclick="fecharModal()">✕</button>
+      </div>
+      <div class="modal-toolbar">
+        <button id="btnAnterior" disabled>Anterior</button>
+        <button id="btnProxima" disabled>Próxima</button>
+        <span class="modal-pagina">Página: <span id="paginaAtual">1</span> / <span id="paginaTotal">1</span></span>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <div class="carregando">Carregando documento...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+
+  <script>
+    const form = document.getElementById('formAssinatura');
+    const btnPesquisar = document.getElementById('btnPesquisar');
+    const mensagem = document.getElementById('mensagem');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalBody = document.getElementById('modalBody');
+
+    form.addEventListener('submit', pesquisar);
+
+    async function pesquisar(event) {
+      event.preventDefault();
+      esconderMensagem();
+
+      const codigo = document.getElementById('codigo').value.trim();
+      const data = document.getElementById('data').value; // formato yyyy-mm-dd
+
+      if (!codigo || !data) return;
+
+      btnPesquisar.disabled = true;
+      btnPesquisar.textContent = 'Pesquisando...';
+
+      try {
+        // O ID do documento no Firestore é "codigo_data", ex: "ABC123_2026-08-11"
+        const docId = `${codigo}_${data}`;
+        const docRef = db.collection('documentos').doc(docId);
+        const snap = await docRef.get();
+
+        if (!snap.exists) {
+          mostrarMensagem('Nenhum documento encontrado para o código e data informados.', 'erro');
+          return;
+        }
+
+        const dados = snap.data();
+        abrirModal(dados);
+
+      } catch (erro) {
+        console.error(erro);
+        mostrarMensagem('Erro ao buscar o documento. Tente novamente.', 'erro');
+      } finally {
+        btnPesquisar.disabled = false;
+        btnPesquisar.textContent = 'Pesquisar';
+      }
+    }
+
+    function abrirModal(dados) {
+      // dados.imagemUrl = link da imagem armazenada
+      modalBody.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = dados.imagemUrl;
+      img.alt = 'Documento Original';
+      modalBody.appendChild(img);
+
+      document.getElementById('paginaAtual').textContent = '1';
+      document.getElementById('paginaTotal').textContent = '1';
+
+      modalOverlay.classList.add('aberto');
+    }
+
+    function fecharModal() {
+      modalOverlay.classList.remove('aberto');
+    }
+
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) fecharModal();
+    });
+
+    function mostrarMensagem(texto, tipo) {
+      mensagem.textContent = texto;
+      mensagem.className = 'mensagem ' + tipo;
+      mensagem.style.display = 'block';
+    }
+
+    function esconderMensagem() {
+      mensagem.style.display = 'none';
+    }
+
+    function limparFormulario() {
+      form.reset();
+      esconderMensagem();
+    }
+  </script>
+
+</body>
+</html>
